@@ -4,6 +4,8 @@
 
 This Profound workflow monitors a brand and its competitive set by topic. It separates routine movement from emerging threats, traces competitor gains to the pages earning citations, and produces a weekly decision package for the content team.
 
+> **Scheduling note:** The weekly schedule is configured separately inside Profound. It is not stored in this JSON export, so importing the workflow does not automatically create or activate a recurring schedule.
+
 ![Public-safe workflow architecture](assets/workflow-architecture.svg)
 
 _Architecture derived from the sanitized workflow export. Brand, account, topic, and integration details are intentionally anonymized._
@@ -199,4 +201,3 @@ README.md                                Case study and configuration guide
 ## Built with
 
 `Profound` · `Python` · `Firecrawl` · `Anthropic` · `Google Docs` · `Slack`
-
