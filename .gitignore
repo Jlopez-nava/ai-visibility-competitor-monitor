@@ -1,0 +1,12 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.log
+credentials.json
+secrets.json
+raw-exports/
+run-output/
+
