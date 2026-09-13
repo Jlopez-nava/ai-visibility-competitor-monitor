@@ -1,0 +1,2741 @@
+{
+  "name": "Weekly Competitor Monitor + Content Brief (Selector)",
+  "description": "Runs weekly to detect when competitors surpass or close on Primary Brand by topic, writes a structured Google Doc analysis, fires Slack alerts (digest + red-flag surpass), then automatically generates full content briefs for surpassed topics and directional recommendations for closing-gap topics — each delivered as separate Slack messages and Google Docs.",
+  "nodes": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "type": "start",
+      "position": {
+        "x": -100,
+        "y": 0
+      },
+      "data": {
+        "title": "Start"
+      },
+      "input_variables": [],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000002",
+            "name": "Topic to scan",
+            "description": "Pick one topic to scan this run, or choose All topics for the full weekly sweep.",
+            "data_type": {
+              "kind": "select",
+              "type": "string",
+              "options": [
+                {
+                  "value": "__all__",
+                  "label": "All topics (full scan)"
+                },
+                {
+                  "value": "Example Topic 01",
+                  "label": "Example Topic 01"
+                },
+                {
+                  "value": "Example Topic 02",
+                  "label": "Example Topic 02"
+                },
+                {
+                  "value": "Example Topic 03",
+                  "label": "Example Topic 03"
+                },
+                {
+                  "value": "Example Topic 04",
+                  "label": "Example Topic 04"
+                },
+                {
+                  "value": "Example Topic 05",
+                  "label": "Example Topic 05"
+                },
+                {
+                  "value": "Example Topic 06",
+                  "label": "Example Topic 06"
+                },
+                {
+                  "value": "Example Topic 07",
+                  "label": "Example Topic 07"
+                },
+                {
+                  "value": "Example Topic 08",
+                  "label": "Example Topic 08"
+                },
+                {
+                  "value": "Example Topic 09",
+                  "label": "Example Topic 09"
+                },
+                {
+                  "value": "Example Topic 10",
+                  "label": "Example Topic 10"
+                },
+                {
+                  "value": "Example Topic 11",
+                  "label": "Example Topic 11"
+                },
+                {
+                  "value": "Example Topic 12",
+                  "label": "Example Topic 12"
+                },
+                {
+                  "value": "Example Topic 13",
+                  "label": "Example Topic 13"
+                },
+                {
+                  "value": "Example Topic 14",
+                  "label": "Example Topic 14"
+                },
+                {
+                  "value": "Example Topic 15",
+                  "label": "Example Topic 15"
+                },
+                {
+                  "value": "Example Topic 16",
+                  "label": "Example Topic 16"
+                },
+                {
+                  "value": "Example Topic 17",
+                  "label": "Example Topic 17"
+                },
+                {
+                  "value": "Example Topic 18",
+                  "label": "Example Topic 18"
+                },
+                {
+                  "value": "Example Topic 19",
+                  "label": "Example Topic 19"
+                },
+                {
+                  "value": "Example Topic 20",
+                  "label": "Example Topic 20"
+                },
+                {
+                  "value": "Example Topic 21",
+                  "label": "Example Topic 21"
+                },
+                {
+                  "value": "Example Topic 22",
+                  "label": "Example Topic 22"
+                },
+                {
+                  "value": "Example Topic 23",
+                  "label": "Example Topic 23"
+                },
+                {
+                  "value": "Example Topic 24",
+                  "label": "Example Topic 24"
+                },
+                {
+                  "value": "Example Topic 25",
+                  "label": "Example Topic 25"
+                }
+              ]
+            },
+            "required": true
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000003"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top",
+      "selected": true
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "parentId": "00000000-0000-4000-8000-000000000005",
+      "type": "tool",
+      "position": {
+        "x": 160,
+        "y": 207
+      },
+      "data": {
+        "provider_id": "code_executor",
+        "tool_parameters": {
+          "code": "import json\n\ndef main(topic_item):\n    if isinstance(topic_item, str):\n        try:\n            topic_item = json.loads(topic_item)\n        except Exception:\n            topic_item = {}\n    if not isinstance(topic_item, dict):\n        topic_item = {}\n\n    pages = topic_item.get('top_cited_pages') or []\n    urls, titles = [], []\n    for p in pages[:3]:\n        u = (p.get('url') or '').strip()\n        if not u:\n            continue\n        if not u.startswith('http'):\n            u = 'https://' + u.lstrip('/')\n        urls.append(u)\n        titles.append(p.get('title') or '')\n\n    # Guard: scrape node fails on an empty URL, so fall back to the\n    # competitor homepage rather than passing an empty string.\n    comp = topic_item.get('competitor', '')\n    fallback = {\n        'Competitor A': 'https://competitor-a.example/',\n        'Competitor B': 'https://competitor-b.example/',\n        'Competitor C': 'https://competitor-c.example/',\n        'Competitor D': 'https://competitor-d.example/',\n        'Competitor E': 'https://competitor-e.example/'\n    }.get(comp, 'https://example.com/')\n\n    def pick(i):\n        return urls[i] if len(urls) > i else (urls[0] if urls else fallback)\n\n    others = topic_item.get('all_competitors') or []\n    context_lines = []\n    for c in others:\n        context_lines.append(f\"{c.get('competitor','')}: {c.get('comp_score',0):.2f}pp (change {c.get('comp_delta',0):+.2f}pp)\")\n\n    return {\n        'url1': pick(0),\n        'url2': pick(1),\n        'url3': pick(2),\n        'page_titles': ' | '.join(t for t in titles if t) or '(no page titles available)',\n        'had_real_pages': bool(urls),\n        'topic': topic_item.get('topic', ''),\n        'competitor': comp,\n        'comp_score': float(topic_item.get('comp_score', 0) or 0),\n        'brand_score': float(topic_item.get('brand_score', 0) or 0),\n        'comp_delta': float(topic_item.get('comp_delta', 0) or 0),\n        'brand_delta': float(topic_item.get('brand_delta', 0) or 0),\n        'gap_pp': float(topic_item.get('gap_pp', 0) or 0),\n        'competitor_context': '\\n'.join(context_lines) or '(no other competitor data)'\n    }",
+          "timeout": 30,
+          "language": "python",
+          "input_variables": [
+            {
+              "name": "topic_item",
+              "value": "{{00000000-0000-4000-8000-000000000006}}"
+            }
+          ]
+        },
+        "title": "Prepare Brief Inputs (with URL guards)",
+        "tool_id": "execute_code"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000006",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000007",
+            "name": "url1",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000008"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000009",
+            "name": "url2",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000000a"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000000b",
+            "name": "url3",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000000c"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000000d",
+            "name": "page_titles",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000000e"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000000f",
+            "name": "had_real_pages",
+            "data_type": {
+              "kind": "primitive",
+              "type": "boolean"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000010"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000011",
+            "name": "topic",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000012"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000013",
+            "name": "competitor",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000014"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000015",
+            "name": "comp_score",
+            "data_type": {
+              "kind": "primitive",
+              "type": "number"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000016"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000017",
+            "name": "brand_score",
+            "data_type": {
+              "kind": "primitive",
+              "type": "number"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000018"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000019",
+            "name": "comp_delta",
+            "data_type": {
+              "kind": "primitive",
+              "type": "number"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000001a"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000001b",
+            "name": "brand_delta",
+            "data_type": {
+              "kind": "primitive",
+              "type": "number"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000001c"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000001d",
+            "name": "gap_pp",
+            "data_type": {
+              "kind": "primitive",
+              "type": "number"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000001e"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000001f",
+            "name": "competitor_context",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000020"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000021",
+      "parentId": "00000000-0000-4000-8000-000000000022",
+      "type": "tool",
+      "position": {
+        "x": 160,
+        "y": 207
+      },
+      "data": {
+        "tool_parameters": {
+          "code": "import json\n\ndef main(topic_item):\n    if isinstance(topic_item, str):\n        try:\n            topic_item = json.loads(topic_item)\n        except Exception:\n            topic_item = {}\n    if not isinstance(topic_item, dict):\n        topic_item = {}\n\n    pages = topic_item.get('top_cited_pages') or []\n    urls, titles = [], []\n    for p in pages[:2]:\n        u = (p.get('url') or '').strip()\n        if not u:\n            continue\n        if not u.startswith('http'):\n            u = 'https://' + u.lstrip('/')\n        urls.append(u)\n        titles.append(p.get('title') or '')\n\n    comp = topic_item.get('competitor', '')\n    fallback = {\n        'Competitor A': 'https://competitor-a.example/',\n        'Competitor B': 'https://competitor-b.example/',\n        'Competitor C': 'https://competitor-c.example/',\n        'Competitor D': 'https://competitor-d.example/',\n        'Competitor E': 'https://competitor-e.example/'\n    }.get(comp, 'https://example.com/')\n\n    def pick(i):\n        return urls[i] if len(urls) > i else (urls[0] if urls else fallback)\n\n    return {\n        'url1': pick(0),\n        'url2': pick(1),\n        'page_titles': ' | '.join(t for t in titles if t) or '(no page titles available)',\n        'had_real_pages': bool(urls),\n        'topic': topic_item.get('topic', ''),\n        'competitor': comp,\n        'comp_score': float(topic_item.get('comp_score', 0) or 0),\n        'brand_score': float(topic_item.get('brand_score', 0) or 0),\n        'comp_delta': float(topic_item.get('comp_delta', 0) or 0),\n        'brand_delta': float(topic_item.get('brand_delta', 0) or 0),\n        'rate_of_closure': float(topic_item.get('rate_of_closure', 0) or 0),\n        'gap_pp': float(topic_item.get('gap_pp', 0) or 0)\n    }",
+          "timeout": 30,
+          "language": "python",
+          "input_variables": [
+            {
+              "name": "topic_item",
+              "value": "{{00000000-0000-4000-8000-000000000023}}"
+            }
+          ]
+        },
+        "title": "Prepare Closing Inputs (with URL guards)",
+        "tool_id": "execute_code",
+        "provider_id": "code_executor"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000023",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000024",
+            "name": "url1",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000008"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000025",
+            "name": "url2",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000000a"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000026",
+            "name": "page_titles",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000000e"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000027",
+            "name": "had_real_pages",
+            "data_type": {
+              "kind": "primitive",
+              "type": "boolean"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000010"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000028",
+            "name": "topic",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000012"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000029",
+            "name": "competitor",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000014"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000002a",
+            "name": "comp_score",
+            "data_type": {
+              "kind": "primitive",
+              "type": "number"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000016"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000002b",
+            "name": "brand_score",
+            "data_type": {
+              "kind": "primitive",
+              "type": "number"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000018"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000002c",
+            "name": "comp_delta",
+            "data_type": {
+              "kind": "primitive",
+              "type": "number"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000001a"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000002d",
+            "name": "brand_delta",
+            "data_type": {
+              "kind": "primitive",
+              "type": "number"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000001c"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000002e",
+            "name": "rate_of_closure",
+            "data_type": {
+              "kind": "primitive",
+              "type": "number"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000002f"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000030",
+            "name": "gap_pp",
+            "data_type": {
+              "kind": "primitive",
+              "type": "number"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000001e"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000031",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 148
+      },
+      "data": {
+        "provider_id": "profound",
+        "tool_id": "visibility_score",
+        "title": "Pull Visibility: Current vs Prior Week",
+        "tool_parameters": {
+          "limit": 5000,
+          "metric": "visibility_score",
+          "filters": [
+            {
+              "type": "asset",
+              "values": [
+                "Primary Brand",
+                "Competitor A",
+                "Competitor B",
+                "Competitor C",
+                "Competitor D",
+                "Competitor E"
+              ],
+              "dimension": true,
+              "include_all_named_assets": false
+            },
+            {
+              "type": "topics",
+              "dimension": true
+            }
+          ],
+          "sort_by": "metric",
+          "date_range": "last_14_days",
+          "category_id": "[REDACTED_CATEGORY_ID_001]",
+          "date_interval": "week",
+          "output_format": "detailed",
+          "sort_direction": "desc"
+        }
+      },
+      "input_variables": [],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000032",
+            "name": "Visibility Score",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000033"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000034",
+      "parentId": "00000000-0000-4000-8000-000000000005",
+      "type": "tool",
+      "position": {
+        "x": 160,
+        "y": 403
+      },
+      "data": {
+        "provider_id": "firecrawl",
+        "tool_parameters": {
+          "url": "{{00000000-0000-4000-8000-000000000007}}",
+          "formats": "markdown",
+          "only_main_content": true
+        },
+        "title": "Scrape Competitor Page 1",
+        "tool_id": "scrape"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000007",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000035",
+            "name": "Page Content",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000037",
+            "name": "Scrape JSON",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000033"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000038",
+            "name": "Scrape Result",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000039"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000003a",
+            "name": "Markdown",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000003b"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000003c",
+            "name": "HTML",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000003d"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000003e",
+      "parentId": "00000000-0000-4000-8000-000000000022",
+      "type": "tool",
+      "position": {
+        "x": 160,
+        "y": 403
+      },
+      "data": {
+        "provider_id": "firecrawl",
+        "title": "Scrape Closing Competitor Page 1",
+        "tool_parameters": {
+          "url": "{{00000000-0000-4000-8000-000000000024}}",
+          "formats": "markdown",
+          "only_main_content": true
+        },
+        "tool_id": "scrape"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000024",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000003f",
+            "name": "Page Content",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000040",
+            "name": "Scrape JSON",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000033"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000041",
+            "name": "Scrape Result",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000039"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000042",
+            "name": "Markdown",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000003b"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000043",
+            "name": "HTML",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000003d"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000044",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 348
+      },
+      "data": {
+        "provider_id": "code_executor",
+        "tool_id": "execute_code",
+        "tool_parameters": {
+          "code": "from collections import defaultdict\n\n# Thresholds in percentage points (pp)\nSURPASS_MIN_GAP_PP = 0.05   # competitor must lead by at least this\nCLOSING_THRESHOLD_PP = 0.30  # competitor delta minus Primary Brand delta, per week\nCOMPETITORS = ['Competitor A', 'Competitor B', 'Competitor C', 'Competitor D', 'Competitor E']\nALL_TOPICS_TOKEN = '__all__'\n\ndef main(visibility_data, selected_topic=None):\n    rows = visibility_data or []\n\n    # Topic scope from the Start dropdown. Blank or the all-topics token = full sweep.\n    scope = (selected_topic or '').strip()\n    scope_all = (scope == '') or (scope.lower() == ALL_TOPICS_TOKEN)\n    scope_key = scope.strip().lower()\n\n    # topic -> asset -> [(date, value)]\n    ta = defaultdict(lambda: defaultdict(list))\n    for r in rows:\n        topic = r.get('topic', '')\n        asset = r.get('asset_name', '')\n        date = r.get('date', '')\n        if not scope_all and topic.strip().lower() != scope_key:\n            continue\n        try:\n            val = float(r.get('metric_value', 0) or 0)\n        except (TypeError, ValueError):\n            val = 0.0\n        if topic and asset:\n            ta[topic][asset].append((date, val))\n\n    surpass, closing, stable, skipped = [], [], [], []\n\n    if not scope_all and not ta:\n        skipped.append(scope)\n\n    for topic, assets in ta.items():\n        brand = sorted(assets.get('Primary Brand', []), key=lambda x: x[0])\n        if not brand:\n            skipped.append(topic)\n            continue\n        # Convert fraction to percentage points\n        brand_cur = brand[-1][1] * 100.0\n        brand_prev = (brand[0][1] * 100.0) if len(brand) > 1 else brand_cur\n        brand_delta = brand_cur - brand_prev\n\n        comp_rows = []\n        for comp in COMPETITORS:\n            entries = sorted(assets.get(comp, []), key=lambda x: x[0])\n            if not entries:\n                continue\n            cur = entries[-1][1] * 100.0\n            prev = (entries[0][1] * 100.0) if len(entries) > 1 else cur\n            comp_rows.append({\n                'competitor': comp,\n                'comp_score': round(cur, 2),\n                'comp_prev': round(prev, 2),\n                'comp_delta': round(cur - prev, 2),\n                'gap_pp': round(brand_cur - cur, 2),\n                'rate_of_closure': round((cur - prev) - brand_delta, 2)\n            })\n\n        if not comp_rows:\n            skipped.append(topic)\n            continue\n\n        # Nearest threat = highest competitor score on this topic\n        comp_rows.sort(key=lambda x: x['comp_score'], reverse=True)\n        nearest = comp_rows[0]\n        # Fastest closer may differ from nearest\n        fastest = max(comp_rows, key=lambda x: x['rate_of_closure'])\n\n        entry = {\n            'topic': topic,\n            'brand_score': round(brand_cur, 2),\n            'brand_prev': round(brand_prev, 2),\n            'brand_delta': round(brand_delta, 2),\n            'all_competitors': comp_rows,\n            'fastest_closer': fastest['competitor'],\n            'fastest_closure_rate': fastest['rate_of_closure']\n        }\n        entry.update(nearest)\n\n        if (nearest['comp_score'] - brand_cur) >= SURPASS_MIN_GAP_PP:\n            entry['state'] = 'SURPASS'\n            surpass.append(entry)\n        elif fastest['rate_of_closure'] >= CLOSING_THRESHOLD_PP:\n            # Report the fastest closer, not just the nearest\n            centry = dict(entry)\n            centry.update(fastest)\n            centry['state'] = 'CLOSING'\n            closing.append(centry)\n        else:\n            entry['state'] = 'STABLE'\n            stable.append(entry)\n\n    surpass.sort(key=lambda x: (x['comp_score'] - x['brand_score']), reverse=True)\n    closing.sort(key=lambda x: x['rate_of_closure'], reverse=True)\n    stable.sort(key=lambda x: x['gap_pp'], reverse=True)\n\n    return {\n        'surpass': surpass,\n        'closing': closing,\n        'stable': stable,\n        'has_alerts': bool(surpass or closing),\n        'topics_analyzed': len(ta),\n        'topics_skipped': skipped\n    }",
+          "timeout": 60,
+          "language": "python",
+          "input_variables": [
+            {
+              "name": "visibility_data",
+              "value": "{{00000000-0000-4000-8000-000000000032}}"
+            },
+            {
+              "name": "selected_topic",
+              "value": "{{00000000-0000-4000-8000-000000000002}}"
+            }
+          ]
+        },
+        "title": "Classify Topics (pp scale, nearest competitor)"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000032",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000002",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000045",
+            "name": "surpass",
+            "data_type": {
+              "kind": "array",
+              "item_type": {
+                "kind": "primitive",
+                "type": "json"
+              }
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000046"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000047",
+            "name": "closing",
+            "data_type": {
+              "kind": "array",
+              "item_type": {
+                "kind": "primitive",
+                "type": "json"
+              }
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000048"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000049",
+            "name": "stable",
+            "data_type": {
+              "kind": "array",
+              "item_type": {
+                "kind": "primitive",
+                "type": "json"
+              }
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000004a"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000004b",
+            "name": "has_alerts",
+            "data_type": {
+              "kind": "primitive",
+              "type": "boolean"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000004c"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000004d",
+            "name": "topics_analyzed",
+            "data_type": {
+              "kind": "primitive",
+              "type": "number"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000004e"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000004f",
+            "name": "topics_skipped",
+            "data_type": {
+              "kind": "array",
+              "item_type": {
+                "kind": "primitive",
+                "type": "string"
+              }
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000050"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000051",
+      "parentId": "00000000-0000-4000-8000-000000000005",
+      "type": "tool",
+      "position": {
+        "x": 160,
+        "y": 599
+      },
+      "data": {
+        "title": "Scrape Competitor Page 2",
+        "tool_id": "scrape",
+        "tool_parameters": {
+          "url": "{{00000000-0000-4000-8000-000000000009}}",
+          "formats": "markdown",
+          "only_main_content": true
+        },
+        "provider_id": "firecrawl"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000009",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000052",
+            "name": "Page Content",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000053",
+            "name": "Scrape JSON",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000033"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000054",
+            "name": "Scrape Result",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000039"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000055",
+            "name": "Markdown",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000003b"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000056",
+            "name": "HTML",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000003d"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000057",
+      "parentId": "00000000-0000-4000-8000-000000000022",
+      "type": "tool",
+      "position": {
+        "x": 160,
+        "y": 599
+      },
+      "data": {
+        "tool_id": "scrape",
+        "provider_id": "firecrawl",
+        "title": "Scrape Closing Competitor Page 2",
+        "tool_parameters": {
+          "url": "{{00000000-0000-4000-8000-000000000025}}",
+          "formats": "markdown",
+          "only_main_content": true
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000025",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000058",
+            "name": "Page Content",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000059",
+            "name": "Scrape JSON",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000033"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000005a",
+            "name": "Scrape Result",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000039"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000005b",
+            "name": "Markdown",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000003b"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000005c",
+            "name": "HTML",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000003d"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000005d",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 548
+      },
+      "data": {
+        "provider_id": "profound",
+        "tool_parameters": {
+          "limit": 5000,
+          "metric": "count",
+          "filters": [
+            {
+              "type": "topics",
+              "dimension": true
+            },
+            {
+              "type": "hostname",
+              "values": [
+                "competitor-a.example",
+                "competitor-b.example",
+                "competitor-c.example",
+                "competitor-d.example",
+                "competitor-e.example"
+              ],
+              "dimension": true
+            }
+          ],
+          "sort_by": "metric",
+          "date_range": "last_7_days",
+          "category_id": "[REDACTED_CATEGORY_ID_001]",
+          "output_format": "json",
+          "sort_direction": "desc"
+        },
+        "title": "Pull Competitor Citation Pages by Topic",
+        "tool_id": "citation_pages"
+      },
+      "input_variables": [],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000005e",
+            "name": "Citation Pages",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000033"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000005f",
+      "parentId": "00000000-0000-4000-8000-000000000005",
+      "type": "tool",
+      "position": {
+        "x": 160,
+        "y": 795
+      },
+      "data": {
+        "tool_id": "scrape",
+        "tool_parameters": {
+          "url": "{{00000000-0000-4000-8000-00000000000b}}",
+          "formats": "markdown",
+          "only_main_content": true
+        },
+        "title": "Scrape Competitor Page 3",
+        "provider_id": "firecrawl"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000000b",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000060",
+            "name": "Page Content",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000061",
+            "name": "Scrape JSON",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000033"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000062",
+            "name": "Scrape Result",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000039"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000063",
+            "name": "Markdown",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000003b"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000064",
+            "name": "HTML",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000003d"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000065",
+      "parentId": "00000000-0000-4000-8000-000000000022",
+      "type": "llm",
+      "position": {
+        "x": 160,
+        "y": 795
+      },
+      "data": {
+        "provider": "anthropic",
+        "model": "claude-fable-latest",
+        "title": "Generate Closing Gap Recommendation",
+        "model_parameters": {
+          "user_prompt": "# Closing Gap Signal\n\n## Topic\n{{00000000-0000-4000-8000-000000000028}}\n\n## Position\n- Primary Brand: {{00000000-0000-4000-8000-00000000002b}}pp (change {{00000000-0000-4000-8000-00000000002d}}pp)\n- {{00000000-0000-4000-8000-000000000029}}: {{00000000-0000-4000-8000-00000000002a}}pp (change {{00000000-0000-4000-8000-00000000002c}}pp)\n- Primary Brand's remaining lead: {{00000000-0000-4000-8000-000000000030}}pp\n- Closure rate: {{00000000-0000-4000-8000-00000000002e}}pp per week\n\n## Competitor pages\nTitles: {{00000000-0000-4000-8000-000000000026}}\nReal cited pages available: {{00000000-0000-4000-8000-000000000027}}\n\n### Page 1 \\u2014 {{00000000-0000-4000-8000-000000000024}}\n{{00000000-0000-4000-8000-00000000003f}}\n\n### Page 2 \\u2014 {{00000000-0000-4000-8000-000000000025}}\n{{00000000-0000-4000-8000-000000000058}}\n\n---\n\nIMPORTANT: If 'Real cited pages available' is False, these are homepage fallbacks rather than actual citation-earning pages. Note that and lower your confidence.\n\nWrite a directional signal, NOT a full brief. Use exactly this structure:\n\n### [Topic Name]\n\n**Position:** Primary Brand {{00000000-0000-4000-8000-00000000002b}}pp vs {{00000000-0000-4000-8000-000000000029}} {{00000000-0000-4000-8000-00000000002a}}pp \\u2014 lead of {{00000000-0000-4000-8000-000000000030}}pp, closing at {{00000000-0000-4000-8000-00000000002e}}pp/wk\n\n**Read:** One paragraph of 4\\u20136 sentences. State plainly whether this is Primary Brand declining or the competitor gaining. Describe the competitor's angle and why it is earning citations. Name the specific coverage gap.\n\n**Actions:**\n- Three to five bullets. Each names a content type, a specific angle or proof point, and whether it is a new piece or an update to something Primary Brand already has.\n\n**Urgency:** Low, Medium, or High, with one sentence of justification based on the closure rate.",
+          "system_prompt": "You are a senior content strategist for Primary Brand, a cancer-care platform with core differentiators including a nationwide oncologist-led Virtual Cancer Clinic, [REDACTED_METRIC] guideline concordance, and full-continuum employer cancer benefits. You monitor competitor AI visibility and produce directional content recommendations when competitors are closing the gap on Primary Brand — before they surpass.",
+          "enable_web_search": false
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000028",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000002b",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000002d",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000029",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000002a",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000002c",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000030",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000002e",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000026",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000027",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000024",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000003f",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000025",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000058",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000066",
+            "name": "LLM Response",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000067",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 748
+      },
+      "data": {
+        "tool_id": "execute_code",
+        "title": "Build Agent 2 Handoff Payload",
+        "provider_id": "code_executor",
+        "tool_parameters": {
+          "code": "from collections import defaultdict\n\nDOMAIN_MAP = {\n    'Competitor A': 'competitor-a.example',\n    'Competitor B': 'competitor-b.example',\n    'Competitor C': 'competitor-c.example',\n    'Competitor D': 'competitor-d.example',\n    'Competitor E': 'competitor-e.example'\n}\n\ndef build_index(citation_pages):\n    \"\"\"topic -> domain -> [pages]. Domain match is substring-based both ways\n    so subdomains and root-domain rollups both land.\"\"\"\n    idx = defaultdict(lambda: defaultdict(list))\n    for r in (citation_pages or []):\n        topic = (r.get('topic') or '').strip()\n        dom = (r.get('domain') or '').strip().lower()\n        url = r.get('url') or r.get('page') or ''\n        title = r.get('page_title') or ''\n        try:\n            cnt = int(float(r.get('metric_value', 0) or 0))\n        except (TypeError, ValueError):\n            cnt = 0\n        if dom and url:\n            idx[topic][dom].append({'url': url, 'title': title, 'count': cnt})\n    for t in idx:\n        for d in idx[t]:\n            idx[t][d].sort(key=lambda x: x['count'], reverse=True)\n    return idx\n\ndef pages_for(idx, topic, competitor, n):\n    target = DOMAIN_MAP.get(competitor, '').lower()\n    if not target:\n        return []\n    root = target.split('.')[0]\n    out = []\n    # Exact topic scope first\n    for dom, pages in idx.get(topic, {}).items():\n        if target in dom or dom in target or root in dom:\n            out.extend(pages)\n    # Do not borrow pages from another topic. Empty evidence is safer than\n    # presenting a cross-topic fallback as topic-specific citation evidence.\n    # De-duplicate by URL, keeping highest count\n    best = {}\n    for p in out:\n        prev = best.get(p['url'])\n        if prev is None or p['count'] > prev['count']:\n            best[p['url']] = p\n    ranked = sorted(best.values(), key=lambda x: x['count'], reverse=True)\n    return ranked[:n]\n\ndef main(surpass, closing, citation_pages):\n    idx = build_index(citation_pages)\n\n    enriched_surpass = []\n    for item in (surpass or []):\n        e = dict(item)\n        e['top_cited_pages'] = pages_for(idx, item.get('topic',''), item.get('competitor',''), 5)\n        enriched_surpass.append(e)\n\n    enriched_closing = []\n    for item in (closing or []):\n        e = dict(item)\n        e['top_cited_pages'] = pages_for(idx, item.get('topic',''), item.get('competitor',''), 5)\n        enriched_closing.append(e)\n\n    matched = sum(1 for x in enriched_surpass + enriched_closing if x['top_cited_pages'])\n    return {\n        'surpass_topics': enriched_surpass,\n        'closing_topics': enriched_closing,\n        'pages_matched_count': matched\n    }",
+          "timeout": 60,
+          "language": "python",
+          "input_variables": [
+            {
+              "name": "surpass",
+              "value": "{{00000000-0000-4000-8000-000000000045}}"
+            },
+            {
+              "name": "closing",
+              "value": "{{00000000-0000-4000-8000-000000000047}}"
+            },
+            {
+              "name": "citation_pages",
+              "value": "{{00000000-0000-4000-8000-00000000005e}}"
+            }
+          ]
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000045",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000047",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000005e",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000068",
+            "name": "surpass_topics",
+            "data_type": {
+              "kind": "array",
+              "item_type": {
+                "kind": "primitive",
+                "type": "json"
+              }
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000069"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000006a",
+            "name": "closing_topics",
+            "data_type": {
+              "kind": "array",
+              "item_type": {
+                "kind": "primitive",
+                "type": "json"
+              }
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000006b"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000006c",
+            "name": "pages_matched_count",
+            "data_type": {
+              "kind": "primitive",
+              "type": "number"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000006d"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000006e",
+      "parentId": "00000000-0000-4000-8000-000000000005",
+      "type": "tool",
+      "position": {
+        "x": 160,
+        "y": 991
+      },
+      "data": {
+        "title": "Pull Primary Brand Citation Pages for Topic",
+        "tool_parameters": {
+          "limit": 10,
+          "metric": "count",
+          "filters": [
+            {
+              "type": "hostname",
+              "values": [
+                "primary-brand.example"
+              ]
+            }
+          ],
+          "sort_by": "metric",
+          "date_range": "last_7_days",
+          "category_id": "[REDACTED_CATEGORY_ID_001]",
+          "output_format": "json",
+          "sort_direction": "desc"
+        },
+        "tool_id": "citation_pages",
+        "provider_id": "profound"
+      },
+      "input_variables": [],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000006f",
+            "name": "Citation Pages",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000033"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000070",
+      "type": "llm",
+      "position": {
+        "x": -100,
+        "y": 948
+      },
+      "data": {
+        "title": "Competitive Analyst Narrative",
+        "provider": "anthropic",
+        "model_parameters": {
+          "user_prompt": "Write the analysis sections of this week's competitive report.\n\n## SURPASS topics (competitor ahead of Primary Brand)\n{{00000000-0000-4000-8000-000000000045}}\n\n## CLOSING topics (Primary Brand leads, competitor gaining)\n{{00000000-0000-4000-8000-000000000047}}\n\n## STABLE topics (Primary Brand moats)\n{{00000000-0000-4000-8000-000000000049}}\n\n## Enriched competitor cited pages for SURPASS topics\n{{00000000-0000-4000-8000-000000000068}}\n\n## Enriched competitor cited pages for CLOSING topics\n{{00000000-0000-4000-8000-00000000006a}}\n\n## Coverage\nTopics analyzed: {{00000000-0000-4000-8000-00000000004d}}\nTopics with no competitor data: {{00000000-0000-4000-8000-00000000004f}}\n\n---\n\nProduce these sections in markdown. Do not restate raw JSON.\n\n## Executive Summary\nThree to five bullets. Lead with the single most consequential shift this week. State the net position: how many topics Primary Brand leads, trails, and is being closed on. Quantify in pp.\n\n## What Changed This Week and Why\nFor each SURPASS topic and the top 5 CLOSING topics, one short paragraph covering:\n- the movement in pp for both Primary Brand and the competitor\n- whether this is Primary Brand declining, the competitor rising, or both\n- the specific cited page(s) that plausibly explain the competitor's gain, named by title and URL\n- the content-shaped gap this implies\n\nThis distinction between 'Primary Brand declined' and 'competitor gained' is the most important analytical judgment in the report. Make it explicitly for every topic.\n\n## Competitor Patterns\nOne paragraph per active competitor. What is their apparent content strategy based on which pages are earning citations? Note format patterns (employer guides, press releases, landing pages, clinical content).\n\n## Where Primary Brand Is Most Exposed\nRank the three topics with the highest risk of becoming a surpass in the next 2-4 weeks. Justify each with the closure rate and what the competitor is publishing.\n\n## Recommended Priorities\nFive numbered actions in priority order. Each names the topic, the content action, and the competitor page it is responding to.",
+          "system_prompt": "You are a competitive intelligence analyst for Primary Brand, a cancer-care platform (prevention, early detection, diagnosis, treatment, survivorship). Positioning: '[REDACTED_POSITIONING_STATEMENT]' Differentiators: nationwide oncologist-led Virtual Cancer Clinic, [REDACTED_METRIC] guideline concordance on real-world data, full-continuum employer cancer benefits, partnership with the National Nonprofit Partner.\n\nTracked competitors: Competitor A (competitor-a.example), Competitor B (competitor-b.example), Competitor C (competitor-c.example), Competitor D (competitor-d.example), Competitor E (competitor-e.example).\n\nYou write the analysis layer of a weekly report read by the content and marketing team. Be specific and quantitative. All scores are percentage points (pp) of AI visibility. Never invent numbers not present in the data. When citation pages are listed, name them explicitly as the mechanism behind a score change. If evidence is thin, say so rather than speculating.",
+          "enable_web_search": false
+        },
+        "model": "claude-fable-latest"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000045",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000047",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000049",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000068",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000006a",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000004d",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000004f",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000071",
+            "name": "LLM Response",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000072",
+      "parentId": "00000000-0000-4000-8000-000000000005",
+      "type": "llm",
+      "position": {
+        "x": 160,
+        "y": 1187
+      },
+      "data": {
+        "title": "Generate Full Content Brief",
+        "provider": "anthropic",
+        "model": "claude-fable-latest",
+        "model_parameters": {
+          "user_prompt": "# Content Brief\n\n## Topic\n{{00000000-0000-4000-8000-000000000011}}\n\n## Competitive position\n- Primary Brand: {{00000000-0000-4000-8000-000000000017}}pp (change {{00000000-0000-4000-8000-00000000001b}}pp)\n- {{00000000-0000-4000-8000-000000000013}}: {{00000000-0000-4000-8000-000000000015}}pp (change {{00000000-0000-4000-8000-000000000019}}pp)\n- All competitors on this topic:\n{{00000000-0000-4000-8000-00000000001f}}\n\n## Competitor pages analyzed\nTitles: {{00000000-0000-4000-8000-00000000000d}}\nReal cited pages available: {{00000000-0000-4000-8000-00000000000f}}\n\n### Page 1 \\u2014 {{00000000-0000-4000-8000-000000000007}}\n{{00000000-0000-4000-8000-000000000035}}\n\n### Page 2 \\u2014 {{00000000-0000-4000-8000-000000000009}}\n{{00000000-0000-4000-8000-000000000052}}\n\n### Page 3 \\u2014 {{00000000-0000-4000-8000-00000000000b}}\n{{00000000-0000-4000-8000-000000000060}}\n\n## Primary Brand's existing citation pages\n{{00000000-0000-4000-8000-00000000006f}}\n\n---\n\nIMPORTANT: If 'Real cited pages available' is False, the pages above are homepage fallbacks rather than the actual citation-earning pages. Say so at the top of the brief and lower your confidence accordingly.\n\nWrite a complete content brief in markdown:\n\n# Content Brief: [Topic]\n\n**Competitive context** \\u2014 two sentences on the gap and whether it is Primary Brand declining or the competitor rising.\n\n## 1. Recommended Content Type\nGuide, landing page, blog post, press release, or other. Justify against what is already ranking.\n\n## 2. Working Title\nThree options, each specific and differentiated from the competitor framing.\n\n## 3. Primary Angle\nThe differentiated position. Name the specific gap in the competitor's coverage this exploits.\n\n## 4. Structural Outline\nA table with columns: Section | Purpose | Key content to include. Eight to twelve rows.\n\n## 5. Proof Points to Anchor\nA table with columns: Claim | Supporting evidence | Source. Draw on Primary Brand's differentiators: [REDACTED_METRIC] guideline concordance on real-world independent clinical dataset data, nationwide oncologist-led Virtual Cancer Clinic, Customer Case Study A ([REDACTED_METRIC] screening adherence, [REDACTED_METRIC] colorectal), Customer Case Study B ([REDACTED_METRIC] cervical, [REDACTED_METRIC] colorectal gap closed), lung screening adherence [REDACTED_METRIC], Customer Case Study C ([REDACTED_METRIC] engagement, [REDACTED_METRIC] screening adherence, [REDACTED_METRIC] prostate), National Nonprofit Partner partnership, Primary Brand Medical clinical delivery. Use only what is genuinely relevant.\n\n## 6. Depth and Specificity Guidance\nWhat must be true for AI models to cite this over the competitor page. Reference the competitor's actual depth as the bar to clear.\n\n## 7. Target Prompts\nEight to ten specific questions this content should win, phrased as a benefits leader or CFO would ask them.\n\n## 8. Internal Linking and Distribution\nWhich existing Primary Brand pages should link to this, and where to distribute.",
+          "system_prompt": "You are a senior content strategist for Primary Brand, a health technology company that provides an accessible cancer-care platform spanning prevention, early detection, diagnosis, treatment, and survivorship. Primary Brand's positioning: '[REDACTED_POSITIONING_STATEMENT]' Core differentiators include a nationwide oncologist-led Virtual Cancer Clinic, guideline-concordant care above [REDACTED_METRIC], and full-continuum cancer support for employers, unions, and public-sector organizations.\n\nYour task is to produce a full content brief that will help Primary Brand reclaim the #1 AI visibility position on a topic where a competitor is currently ahead. The brief must be actionable, specific, and optimized for citation by AI models.",
+          "enable_web_search": false
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000011",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000017",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000001b",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000013",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000015",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000019",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000001f",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000000d",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000000f",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000007",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000035",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000009",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000052",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000000b",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000060",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000006f",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000073",
+            "name": "LLM Response",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000074",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 1148
+      },
+      "data": {
+        "provider_id": "code_executor",
+        "title": "Build Full Report Document",
+        "tool_parameters": {
+          "code": "from datetime import date, timedelta\n\ndef bar(value, max_value, width=28):\n    \"\"\"Text bar chart cell that renders in Google Docs.\"\"\"\n    if max_value <= 0:\n        return ''\n    filled = int(round((value / max_value) * width))\n    filled = max(0, min(width, filled))\n    return '\\u2588' * filled + '\\u2591' * (width - filled)\n\ndef arrow(d):\n    if d > 0.005:\n        return f'\\u25b2 +{d:.2f}'\n    if d < -0.005:\n        return f'\\u25bc {d:.2f}'\n    return f'\\u25ac {d:.2f}'\n\ndef pages_table(pages, limit=5):\n    if not pages:\n        return '_No competitor cited pages matched for this topic._\\n'\n    out = ['| # | Page Title | Citations | URL |', '|---|-----------|-----------|-----|']\n    for i, p in enumerate(pages[:limit], 1):\n        title = (p.get('title') or '(untitled)')[:70]\n        out.append(f\"| {i} | {title} | {p.get('count',0)} | {p.get('url','')} |\")\n    return '\\n'.join(out) + '\\n'\n\ndef pages_lookup(enriched, topic):\n    for e in (enriched or []):\n        if e.get('topic') == topic:\n            return e.get('top_cited_pages', [])\n    return []\n\ndef main(surpass, closing, stable, narrative, surpass_enriched, closing_enriched, topics_analyzed, topics_skipped):\n    today = date.today()\n    cur_end = today - timedelta(days=1)\n    cur_start = cur_end - timedelta(days=6)\n    prev_end = cur_start - timedelta(days=1)\n    prev_start = prev_end - timedelta(days=6)\n    week_label = f'Week of {cur_start.strftime(\"%b %d\")} \\u2013 {cur_end.strftime(\"%b %d, %Y\")}'\n\n    n_sur, n_clo, n_sta = len(surpass or []), len(closing or []), len(stable or [])\n    total = n_sur + n_clo + n_sta\n\n    L = []\n    L.append(f'# Competitive Intelligence Report')\n    L.append(f'**{week_label}**  ')\n    L.append(f'Current period: {cur_start} to {cur_end} | Prior period: {prev_start} to {prev_end}  ')\n    L.append(f'Scope: {topics_analyzed} topics analyzed | All figures in percentage points (pp) of AI visibility\\n')\n    L.append('---\\n')\n\n    # Scorecard\n    L.append('## At a Glance\\n')\n    L.append('| Status | Topics | Share |')\n    L.append('|--------|--------|-------|')\n    if total:\n        L.append(f'| \\U0001f534 Competitor ahead (SURPASS) | {n_sur} | {100.0*n_sur/total:.0f}% |')\n        L.append(f'| \\U0001f7e1 Gap closing (CLOSING) | {n_clo} | {100.0*n_clo/total:.0f}% |')\n        L.append(f'| \\U0001f7e2 Primary Brand moat (STABLE) | {n_sta} | {100.0*n_sta/total:.0f}% |')\n        L.append(f'| **Total** | **{total}** | **[REDACTED_METRIC]** |')\n    else:\n        L.append('| _no topic data returned_ | 0 | \\u2014 |')\n    L.append('')\n    if topics_skipped:\n        L.append(f'_Topics with no competitor data this period: {\", \".join(topics_skipped)}_\\n')\n\n    # Analyst narrative\n    L.append('---\\n')\n    L.append(str(narrative or '_Analysis unavailable._'))\n    L.append('\\n---\\n')\n\n    # Section 1: Surpass\n    L.append('## Section 1 \\u2014 Competitor Surpass Alerts\\n')\n    if surpass:\n        L.append(f'{n_sur} topic(s) where a competitor now outranks Primary Brand.\\n')\n        peak = max([max(i[\"brand_score\"], i[\"comp_score\"]) for i in surpass] + [1.0])\n        L.append('### Visibility Comparison\\n')\n        L.append('| Topic | Competitor | Primary Brand | Competitor | Deficit |')\n        L.append('|-------|-----------|-------|-----------|---------|')\n        for i in surpass:\n            L.append(f\"| {i['topic']} | {i['competitor']} | {i['brand_score']:.2f}pp | {i['comp_score']:.2f}pp | **{i['comp_score']-i['brand_score']:.2f}pp** |\")\n        L.append('')\n        L.append('### Relative Position\\n')\n        L.append('```')\n        for i in surpass:\n            L.append(f\"{i['topic'][:44]}\")\n            L.append(f\"  Primary Brand        {bar(i['brand_score'], peak)} {i['brand_score']:.2f}pp\")\n            L.append(f\"  {i['competitor'][:12]:<12} {bar(i['comp_score'], peak)} {i['comp_score']:.2f}pp\")\n            L.append('')\n        L.append('```\\n')\n        for i in surpass:\n            L.append(f\"### {i['topic']}\\n\")\n            L.append(f\"**Leading competitor:** {i['competitor']}\\n\")\n            L.append('| Metric | Primary Brand | ' + i['competitor'] + ' |')\n            L.append('|--------|-------------|' + '-'*len(i['competitor']) + '|')\n            L.append(f\"| Current | {i['brand_score']:.2f}pp | {i['comp_score']:.2f}pp |\")\n            L.append(f\"| Prior week | {i.get('brand_prev',0):.2f}pp | {i.get('comp_prev',0):.2f}pp |\")\n            L.append(f\"| Change | {arrow(i['brand_delta'])}pp | {arrow(i['comp_delta'])}pp |\")\n            L.append('')\n            others = [c for c in i.get('all_competitors', []) if c['competitor'] != i['competitor']]\n            if others:\n                L.append('**Other competitors on this topic:** ' + ', '.join(f\"{c['competitor']} {c['comp_score']:.2f}pp\" for c in others) + '\\n')\n            L.append('**Competitor pages earning citations:**\\n')\n            L.append(pages_table(pages_lookup(surpass_enriched, i['topic'])))\n    else:\n        L.append('_No competitor currently leads Primary Brand on any tracked topic._\\n')\n\n    # Section 2: Closing\n    L.append('---\\n')\n    L.append('## Section 2 \\u2014 Closing Gap Warnings\\n')\n    if closing:\n        L.append(f'{n_clo} topic(s) where Primary Brand leads but a competitor is gaining. Sorted by closure rate.\\n')\n        maxrate = max([i['rate_of_closure'] for i in closing] + [0.01])\n        L.append('### Closure Rate Ranking\\n')\n        L.append('| Rank | Topic | Competitor | Closure Rate | Current Lead | Weeks to Parity |')\n        L.append('|------|-------|-----------|--------------|-------------|-----------------|')\n        for n, i in enumerate(closing, 1):\n            rate = i['rate_of_closure']\n            wks = f\"{i['gap_pp']/rate:.0f}\" if rate > 0 and i['gap_pp'] > 0 else '\\u2014'\n            L.append(f\"| {n} | {i['topic']} | {i['competitor']} | {rate:.2f}pp/wk | +{i['gap_pp']:.2f}pp | {wks} |\")\n        L.append('')\n        L.append('### Closure Velocity\\n')\n        L.append('```')\n        for i in closing:\n            L.append(f\"{i['topic'][:40]:<40} {bar(i['rate_of_closure'], maxrate, 24)} {i['rate_of_closure']:.2f}pp/wk\")\n        L.append('```\\n')\n        for i in closing:\n            L.append(f\"### {i['topic']}\\n\")\n            L.append(f\"**Fastest closer:** {i['competitor']} at {i['rate_of_closure']:.2f}pp/week\\n\")\n            L.append('| Metric | Primary Brand | ' + i['competitor'] + ' |')\n            L.append('|--------|-------------|' + '-'*len(i['competitor']) + '|')\n            L.append(f\"| Current | {i['brand_score']:.2f}pp | {i['comp_score']:.2f}pp |\")\n            L.append(f\"| Prior week | {i.get('brand_prev',0):.2f}pp | {i.get('comp_prev',0):.2f}pp |\")\n            L.append(f\"| Change | {arrow(i['brand_delta'])}pp | {arrow(i['comp_delta'])}pp |\")\n            L.append(f\"| Remaining lead | +{i['gap_pp']:.2f}pp | |\")\n            L.append('')\n            L.append('**Competitor pages earning citations:**\\n')\n            L.append(pages_table(pages_lookup(closing_enriched, i['topic'])))\n    else:\n        L.append('_No topics currently show a competitor closing faster than the threshold._\\n')\n\n    # Section 3: Moats\n    L.append('---\\n')\n    L.append('## Section 3 \\u2014 Primary Brand Moats\\n')\n    if stable:\n        L.append(f'{n_sta} topic(s) where Primary Brand leads with a stable or widening gap.\\n')\n        maxgap = max([i['gap_pp'] for i in stable] + [0.01])\n        L.append('| Topic | Primary Brand | Nearest Competitor | Their Score | Lead | Primary Brand Trend |')\n        L.append('|-------|-------|-------------------|------------|------|-------------|')\n        for i in stable:\n            L.append(f\"| {i['topic']} | {i['brand_score']:.2f}pp | {i['competitor']} | {i['comp_score']:.2f}pp | +{i['gap_pp']:.2f}pp | {arrow(i['brand_delta'])}pp |\")\n        L.append('')\n        L.append('### Moat Strength\\n')\n        L.append('```')\n        for i in stable:\n            L.append(f\"{i['topic'][:40]:<40} {bar(i['gap_pp'], maxgap, 24)} +{i['gap_pp']:.2f}pp\")\n        L.append('```\\n')\n    else:\n        L.append('_No topics currently classified as stable moats._\\n')\n\n    L.append('---\\n')\n    L.append('### Methodology\\n')\n    L.append(f'- Visibility scores compare the 7 days ending {cur_end} against the prior 7 days.')\n    L.append('- SURPASS: a competitor exceeds Primary Brand by at least 0.05pp.')\n    L.append('- CLOSING: Primary Brand leads, but a competitor gained at least 0.30pp/week more than Primary Brand.')\n    L.append('- STABLE: Primary Brand leads and no competitor exceeds the closing threshold.')\n    L.append('- \"Weeks to Parity\" is a linear projection of the current lead divided by the closure rate. It assumes both trends hold and is a rough signal, not a forecast.')\n    L.append('- Cited pages are the competitor pages Profound observed in AI answers, ranked by citation count.')\n\n    return {'doc_content': '\\n'.join(L), 'doc_title': f'Competitive Intelligence Report \\u2014 {cur_end}', 'week_label': week_label}",
+          "timeout": 60,
+          "language": "python",
+          "input_variables": [
+            {
+              "name": "surpass",
+              "value": "{{00000000-0000-4000-8000-000000000045}}"
+            },
+            {
+              "name": "closing",
+              "value": "{{00000000-0000-4000-8000-000000000047}}"
+            },
+            {
+              "name": "stable",
+              "value": "{{00000000-0000-4000-8000-000000000049}}"
+            },
+            {
+              "name": "narrative",
+              "value": "{{00000000-0000-4000-8000-000000000071}}"
+            },
+            {
+              "name": "surpass_enriched",
+              "value": "{{00000000-0000-4000-8000-000000000068}}"
+            },
+            {
+              "name": "closing_enriched",
+              "value": "{{00000000-0000-4000-8000-00000000006a}}"
+            },
+            {
+              "name": "topics_analyzed",
+              "value": "{{00000000-0000-4000-8000-00000000004d}}"
+            },
+            {
+              "name": "topics_skipped",
+              "value": "{{00000000-0000-4000-8000-00000000004f}}"
+            }
+          ]
+        },
+        "tool_id": "execute_code"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000045",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000047",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000049",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000071",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000068",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000006a",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000004d",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000004f",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000075",
+            "name": "doc_content",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000076"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000077",
+            "name": "doc_title",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000078"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000079",
+            "name": "week_label",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000007a"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000007b",
+      "parentId": "00000000-0000-4000-8000-000000000005",
+      "type": "tool",
+      "position": {
+        "x": 160,
+        "y": 1383
+      },
+      "data": {
+        "title": "Save Content Brief to Google Doc",
+        "tool_parameters": {
+          "title": "Content Brief — {{00000000-0000-4000-8000-000000000011}} — {{00000000-0000-4000-8000-000000000013}}",
+          "content": "{{00000000-0000-4000-8000-000000000073}}",
+          "content_format": "markdown",
+          "integration_id": "[REDACTED_INTEGRATION_ID_001]"
+        },
+        "tool_id": "create_document",
+        "provider_id": "google_docs"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000011",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000013",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000073",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000007c",
+            "name": "Created Document JSON",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000033"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000007d",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 1348
+      },
+      "data": {
+        "tool_id": "create_document",
+        "provider_id": "google_docs",
+        "tool_parameters": {
+          "title": "{{00000000-0000-4000-8000-000000000077}}",
+          "content": "{{00000000-0000-4000-8000-000000000075}}",
+          "content_format": "markdown",
+          "integration_id": "[REDACTED_INTEGRATION_ID_001]"
+        },
+        "title": "Create Weekly Analysis Google Doc"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000077",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000075",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000007e",
+            "name": "Created Document JSON",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000033"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000007f",
+      "parentId": "00000000-0000-4000-8000-000000000005",
+      "type": "tool",
+      "position": {
+        "x": 160,
+        "y": 1775
+      },
+      "data": {
+        "title": "Format Message C Text",
+        "tool_id": "execute_code",
+        "provider_id": "code_executor",
+        "tool_parameters": {
+          "code": "def extract_doc_url(doc_json):\n    \"\"\"Google Docs node output shape is not documented; probe likely keys.\"\"\"\n    if not isinstance(doc_json, dict):\n        return ''\n    for key in ('webViewLink', 'url', 'link'):\n        val = doc_json.get(key)\n        if isinstance(val, str) and val.startswith('http'):\n            return val\n    for key in ('documentId', 'document_id', 'id'):\n        val = doc_json.get(key)\n        if isinstance(val, str) and val:\n            return f'https://docs.google.com/document/d/{val}'\n    for nest in ('document', 'data', 'result'):\n        inner = doc_json.get(nest)\n        if isinstance(inner, dict):\n            nested = extract_doc_url(inner)\n            if nested:\n                return nested\n    return ''\n\ndef main(topic, competitor, comp_score, brand_score, doc_json):\n    doc_url = extract_doc_url(doc_json)\n    link_text = doc_url if doc_url else '(brief doc link unavailable)'\n    msg = (f'Content brief ready \\u2014 {topic}. '\n           f'{competitor} is ahead at {float(comp_score):.1f}pp vs Primary Brand at {float(brand_score):.1f}pp. '\n           f'Brief to reclaim #1 \\u2192 {link_text}')\n    return {'message_c': msg}",
+          "timeout": 30,
+          "language": "python",
+          "input_variables": [
+            {
+              "name": "topic",
+              "value": "{{00000000-0000-4000-8000-000000000011}}"
+            },
+            {
+              "name": "competitor",
+              "value": "{{00000000-0000-4000-8000-000000000013}}"
+            },
+            {
+              "name": "comp_score",
+              "value": "{{00000000-0000-4000-8000-000000000015}}"
+            },
+            {
+              "name": "brand_score",
+              "value": "{{00000000-0000-4000-8000-000000000017}}"
+            },
+            {
+              "name": "doc_json",
+              "value": "{{00000000-0000-4000-8000-00000000007c}}"
+            }
+          ]
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000011",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000013",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000015",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000017",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000007c",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000080",
+            "name": "message_c",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000081"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000082",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 1548
+      },
+      "data": {
+        "tool_parameters": {
+          "code": "def extract_doc_url(doc_json):\n    if not isinstance(doc_json, dict):\n        return ''\n    for key in ('webViewLink', 'url', 'link', 'documentUrl'):\n        val = doc_json.get(key)\n        if isinstance(val, str) and val.startswith('http'):\n            return val\n    for key in ('documentId', 'document_id', 'id'):\n        val = doc_json.get(key)\n        if isinstance(val, str) and val:\n            return f'https://docs.google.com/document/d/{val}'\n    for nest in ('document', 'data', 'result', 'json'):\n        inner = doc_json.get(nest)\n        if isinstance(inner, dict):\n            got = extract_doc_url(inner)\n            if got:\n                return got\n    return ''\n\ndef main(surpass, closing, doc_json, week_label):\n    url = extract_doc_url(doc_json)\n    link = url if url else '(doc link unavailable)'\n\n    n_sur, n_clo = len(surpass or []), len(closing or [])\n\n    # Message A: routine weekly digest\n    a = [f'Latest competitor content analysis is ready. {week_label}.']\n    a.append(f'{n_sur} surpass | {n_clo} closing gap')\n    a.append(f'Full analysis \\u2192 {link}')\n    message_a = '\\n'.join(a)\n\n    # Message B: surpass red flag\n    if surpass:\n        alerts = []\n        for i in surpass:\n            alerts.append(\n                f\"\\U0001f6a8 Competitor overlap detected \\u2014 {i.get('competitor','')} has surpassed \"\n                f\"Primary Brand on {i.get('topic','')} \"\n                f\"({i.get('competitor','')} {i.get('comp_score',0):.2f}pp vs Primary Brand {i.get('brand_score',0):.2f}pp, \"\n                f\"deficit {i.get('comp_score',0)-i.get('brand_score',0):.2f}pp).\\n\"\n                f\"Pages driving this are in the report: {link}\"\n            )\n        message_b = '\\n\\n'.join(alerts)\n    else:\n        message_b = f'No competitor surpass events this week. {week_label}.'\n\n    # Closing gap notice \\u2014 previously missing entirely\n    if closing:\n        top = closing[:5]\n        lines = [f'\\u26a0\\ufe0f Closing gap warning \\u2014 {n_clo} topic(s) where a competitor is gaining on Primary Brand.']\n        for i in top:\n            gap = i.get('gap_pp', 0)\n            rate = i.get('rate_of_closure', 0)\n            wks = f\", ~{gap/rate:.0f} wks to parity\" if rate > 0 and gap > 0 else ''\n            lines.append(\n                f\"\\u2022 {i.get('topic','')}: {i.get('competitor','')} closing at \"\n                f\"{rate:.2f}pp/wk (Primary Brand leads by {gap:.2f}pp{wks})\"\n            )\n        if n_clo > 5:\n            lines.append(f'...and {n_clo-5} more in the report.')\n        lines.append(f'Detail \\u2192 {link}')\n        message_closing_notice = '\\n'.join(lines)\n    else:\n        message_closing_notice = 'No closing-gap warnings this week.'\n\n    return {\n        'message_a': message_a,\n        'message_b': message_b,\n        'message_closing_notice': message_closing_notice,\n        'has_surpass': bool(surpass),\n        'has_closing': bool(closing)\n    }",
+          "timeout": 30,
+          "language": "python",
+          "input_variables": [
+            {
+              "name": "surpass",
+              "value": "{{00000000-0000-4000-8000-000000000045}}"
+            },
+            {
+              "name": "closing",
+              "value": "{{00000000-0000-4000-8000-000000000047}}"
+            },
+            {
+              "name": "doc_json",
+              "value": "{{00000000-0000-4000-8000-00000000007e}}"
+            },
+            {
+              "name": "week_label",
+              "value": "{{00000000-0000-4000-8000-000000000079}}"
+            }
+          ]
+        },
+        "title": "Format Messages A + B + Closing Notice",
+        "provider_id": "code_executor",
+        "tool_id": "execute_code"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000045",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000047",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000007e",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000079",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000083",
+            "name": "message_a",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000084"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000085",
+            "name": "message_b",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000086"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000087",
+            "name": "message_closing_notice",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000088"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000089",
+            "name": "has_surpass",
+            "data_type": {
+              "kind": "primitive",
+              "type": "boolean"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000008a"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000008b",
+            "name": "has_closing",
+            "data_type": {
+              "kind": "primitive",
+              "type": "boolean"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-00000000008c"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000008d",
+      "parentId": "00000000-0000-4000-8000-000000000005",
+      "type": "tool",
+      "position": {
+        "x": 160,
+        "y": 1579
+      },
+      "data": {
+        "tool_parameters": {
+          "message": "{{00000000-0000-4000-8000-000000000080}}",
+          "channel_id": "[REDACTED_CHANNEL_ID_001]",
+          "integration_id": "[REDACTED_INTEGRATION_ID_002]"
+        },
+        "tool_id": "send_message",
+        "title": "Post Message C — Content Brief Follow-up",
+        "provider_id": "slack"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000080",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000008e",
+            "name": "Send Message Summary",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000008f",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 1748
+      },
+      "data": {
+        "title": "Post Message B — Surpass Alert",
+        "tool_id": "send_message",
+        "tool_parameters": {
+          "message": "{{00000000-0000-4000-8000-000000000085}}",
+          "channel_id": "[REDACTED_CHANNEL_ID_001]",
+          "integration_id": "[REDACTED_INTEGRATION_ID_002]"
+        },
+        "provider_id": "slack"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000085",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000090",
+            "name": "Send Message Summary",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000091",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 1948
+      },
+      "data": {
+        "tool_parameters": {
+          "message": "{{00000000-0000-4000-8000-000000000087}}",
+          "channel_id": "[REDACTED_CHANNEL_ID_001]",
+          "integration_id": "[REDACTED_INTEGRATION_ID_002]"
+        },
+        "tool_id": "send_message",
+        "provider_id": "slack",
+        "title": "Post Closing Gap Warning"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000087",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000092",
+            "name": "Send Message Summary",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000093",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 2148
+      },
+      "data": {
+        "title": "Post Message A — Weekly Digest",
+        "provider_id": "slack",
+        "tool_id": "send_message",
+        "tool_parameters": {
+          "message": "{{00000000-0000-4000-8000-000000000083}}",
+          "channel_id": "[REDACTED_CHANNEL_ID_001]",
+          "integration_id": "[REDACTED_INTEGRATION_ID_002]"
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000083",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000094",
+            "name": "Send Message Summary",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "type": "iteration",
+      "position": {
+        "x": -100,
+        "y": 2348
+      },
+      "data": {
+        "iteration_on": "{{00000000-0000-4000-8000-000000000068}}",
+        "item_error_handling": {
+          "on_error": "continue_with_defaults",
+          "default_outputs": {
+            "text": ""
+          }
+        },
+        "mode": "serial",
+        "title": "Agent 2: Iterate SURPASS Topics"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000068",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000095",
+            "name": "Send Message Summary",
+            "data_type": {
+              "kind": "array",
+              "item_type": {
+                "kind": "primitive",
+                "type": "string"
+              }
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        }
+      ],
+      "local_variables": [
+        {
+          "id": "00000000-0000-4000-8000-000000000006",
+          "name": "Item",
+          "source": "00000000-0000-4000-8000-000000000096"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000097",
+          "name": "Index",
+          "source": "00000000-0000-4000-8000-000000000098"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000022",
+      "type": "iteration",
+      "position": {
+        "x": -100,
+        "y": 2548
+      },
+      "data": {
+        "item_error_handling": {
+          "on_error": "continue_with_defaults",
+          "default_outputs": {
+            "text": ""
+          }
+        },
+        "iteration_on": "{{00000000-0000-4000-8000-00000000006a}}",
+        "mode": "serial",
+        "title": "Agent 2: Iterate CLOSING Topics"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000006a",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000099",
+            "name": "Page Content",
+            "data_type": {
+              "kind": "array",
+              "item_type": {
+                "kind": "primitive",
+                "type": "string"
+              }
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        }
+      ],
+      "local_variables": [
+        {
+          "id": "00000000-0000-4000-8000-000000000023",
+          "name": "Item",
+          "source": "00000000-0000-4000-8000-000000000096"
+        },
+        {
+          "id": "00000000-0000-4000-8000-00000000009a",
+          "name": "Index",
+          "source": "00000000-0000-4000-8000-000000000098"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000009b",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 2748
+      },
+      "data": {
+        "tool_id": "execute_code",
+        "provider_id": "code_executor",
+        "tool_parameters": {
+          "code": "from datetime import date\n\ndef main(closing_topics, recommendations):\n    today = date.today().strftime('%B %d, %Y')\n    doc_title = f'Closing Gap Recommendations \\u2014 {today}'\n\n    lines = [f'# Closing Gap Recommendations \\u2014 {today}\\n',\n             '_Topics where competitors are closing on Primary Brand. Act before these become surpass events._\\n']\n\n    # recommendations is a collected array from the iteration (list of strings)\n    # closing_topics is the list of topic metadata\n    rec_list = recommendations if isinstance(recommendations, list) else []\n    topics_list = closing_topics if isinstance(closing_topics, list) else []\n\n    import json\n    for i, rec in enumerate(rec_list):\n        if i < len(topics_list):\n            t = topics_list[i]\n            if isinstance(t, str):\n                t = json.loads(t)\n            topic = t.get('topic', f'Topic {i+1}')\n            competitor = t.get('competitor', '')\n            rate = t.get('rate_of_closure', 0)\n            lines.append(f'## {topic} \\u2014 {competitor} (closing at {rate:.2f} pp/week)\\n')\n        else:\n            lines.append(f'## Topic {i+1}\\n')\n        lines.append(str(rec))\n        lines.append('')\n\n    doc_content = '\\n'.join(lines)\n    return {'doc_content': doc_content, 'doc_title': doc_title}",
+          "timeout": 30,
+          "language": "python",
+          "input_variables": [
+            {
+              "name": "closing_topics",
+              "value": "{{00000000-0000-4000-8000-00000000006a}}"
+            },
+            {
+              "name": "recommendations",
+              "value": "{{00000000-0000-4000-8000-000000000099}}"
+            }
+          ]
+        },
+        "title": "Format Closing Gap Recommendations Doc"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000006a",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000099",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000009c",
+            "name": "doc_content",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000076"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000009d",
+            "name": "doc_title",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000078"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000009e",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 2948
+      },
+      "data": {
+        "title": "Create Closing Gap Recommendations Google Doc",
+        "tool_id": "create_document",
+        "provider_id": "google_docs",
+        "tool_parameters": {
+          "title": "{{00000000-0000-4000-8000-00000000009d}}",
+          "content": "{{00000000-0000-4000-8000-00000000009c}}",
+          "content_format": "markdown",
+          "integration_id": "[REDACTED_INTEGRATION_ID_001]"
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000009d",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000009c",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000009f",
+            "name": "Created Document JSON",
+            "data_type": {
+              "kind": "object",
+              "fields": [],
+              "allow_additional_properties": true
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000033"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000a0",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 3148
+      },
+      "data": {
+        "title": "Format Closing Gap Doc Link Message",
+        "tool_id": "execute_code",
+        "provider_id": "code_executor",
+        "tool_parameters": {
+          "code": "def extract_doc_url(doc_json):\n    if not isinstance(doc_json, dict):\n        return ''\n    for key in ('webViewLink', 'url', 'link'):\n        val = doc_json.get(key)\n        if isinstance(val, str) and val.startswith('http'):\n            return val\n    for key in ('documentId', 'document_id', 'id'):\n        val = doc_json.get(key)\n        if isinstance(val, str) and val:\n            return f'https://docs.google.com/document/d/{val}'\n    for nest in ('document', 'data', 'result'):\n        inner = doc_json.get(nest)\n        if isinstance(inner, dict):\n            nested = extract_doc_url(inner)\n            if nested:\n                return nested\n    return ''\n\ndef main(doc_json, closing_topics):\n    url = extract_doc_url(doc_json)\n    count = len(closing_topics) if isinstance(closing_topics, list) else 0\n    if count == 0:\n        msg = 'No closing-gap topics this week \\u2014 no recommendations doc generated.'\n    else:\n        link_text = url if url else '(doc link unavailable)'\n        msg = f'Closing gap recommendations ({count} topic(s)) \\u2192 {link_text}'\n    return {'message_closing_link': msg}",
+          "timeout": 30,
+          "language": "python",
+          "input_variables": [
+            {
+              "name": "doc_json",
+              "value": "{{00000000-0000-4000-8000-00000000009f}}"
+            },
+            {
+              "name": "closing_topics",
+              "value": "{{00000000-0000-4000-8000-00000000006a}}"
+            }
+          ]
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000009f",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000006a",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-0000000000a1",
+            "name": "message_closing_link",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-0000000000a2"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000a3",
+      "type": "tool",
+      "position": {
+        "x": -100,
+        "y": 3348
+      },
+      "data": {
+        "title": "Post Closing Gap Doc Link",
+        "tool_parameters": {
+          "message": "{{00000000-0000-4000-8000-0000000000a1}}",
+          "channel_id": "[REDACTED_CHANNEL_ID_001]",
+          "integration_id": "[REDACTED_INTEGRATION_ID_002]"
+        },
+        "provider_id": "slack",
+        "tool_id": "send_message"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-0000000000a1",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-0000000000a4",
+            "name": "Send Message Summary",
+            "data_type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "required": false
+          },
+          "expected_output_id": "00000000-0000-4000-8000-000000000036"
+        }
+      ],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000a5",
+      "type": "end",
+      "position": {
+        "x": -100,
+        "y": 3579
+      },
+      "data": {
+        "title": "End",
+        "outputs": [
+          {
+            "key": "weekly_analysis_doc",
+            "required": false,
+            "variable_id": "00000000-0000-4000-8000-00000000007e"
+          },
+          {
+            "key": "closing_gap_doc",
+            "required": false,
+            "variable_id": "00000000-0000-4000-8000-00000000009f"
+          },
+          {
+            "key": "surpass_topics",
+            "required": false,
+            "variable_id": "00000000-0000-4000-8000-000000000068"
+          },
+          {
+            "key": "closing_topics",
+            "required": false,
+            "variable_id": "00000000-0000-4000-8000-00000000006a"
+          }
+        ]
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000007e",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000009f",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000068",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000006a",
+          "required": false
+        }
+      ],
+      "output_variables": [],
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    }
+  ],
+  "edges": [
+    {
+      "id": "00000000-0000-4000-8000-0000000000a6",
+      "source": "00000000-0000-4000-8000-000000000001",
+      "target": "00000000-0000-4000-8000-000000000031",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000a9",
+      "source": "00000000-0000-4000-8000-000000000031",
+      "target": "00000000-0000-4000-8000-000000000044",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000aa",
+      "source": "00000000-0000-4000-8000-000000000044",
+      "target": "00000000-0000-4000-8000-00000000005d",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000ab",
+      "source": "00000000-0000-4000-8000-000000000074",
+      "target": "00000000-0000-4000-8000-00000000007d",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000ac",
+      "source": "00000000-0000-4000-8000-00000000007d",
+      "target": "00000000-0000-4000-8000-000000000082",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000ad",
+      "source": "00000000-0000-4000-8000-000000000082",
+      "target": "00000000-0000-4000-8000-00000000008f",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000ae",
+      "source": "00000000-0000-4000-8000-000000000005",
+      "target": "00000000-0000-4000-8000-000000000022",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000af",
+      "source": "00000000-0000-4000-8000-000000000022",
+      "target": "00000000-0000-4000-8000-00000000009b",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000b0",
+      "source": "00000000-0000-4000-8000-00000000009b",
+      "target": "00000000-0000-4000-8000-00000000009e",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000b1",
+      "source": "00000000-0000-4000-8000-00000000009e",
+      "target": "00000000-0000-4000-8000-0000000000a0",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000b2",
+      "source": "00000000-0000-4000-8000-0000000000a0",
+      "target": "00000000-0000-4000-8000-0000000000a3",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000b3",
+      "source": "00000000-0000-4000-8000-0000000000a3",
+      "target": "00000000-0000-4000-8000-0000000000a5",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000b4",
+      "source": "00000000-0000-4000-8000-000000000093",
+      "target": "00000000-0000-4000-8000-000000000005",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000b5",
+      "source": "00000000-0000-4000-8000-00000000005d",
+      "target": "00000000-0000-4000-8000-000000000067",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000b6",
+      "source": "00000000-0000-4000-8000-000000000067",
+      "target": "00000000-0000-4000-8000-000000000070",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000b7",
+      "source": "00000000-0000-4000-8000-000000000070",
+      "target": "00000000-0000-4000-8000-000000000074",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000b8",
+      "source": "00000000-0000-4000-8000-00000000008f",
+      "target": "00000000-0000-4000-8000-000000000091",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000b9",
+      "source": "00000000-0000-4000-8000-000000000091",
+      "target": "00000000-0000-4000-8000-000000000093",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000ba",
+      "source": "00000000-0000-4000-8000-000000000004",
+      "target": "00000000-0000-4000-8000-000000000034",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000bb",
+      "source": "00000000-0000-4000-8000-000000000034",
+      "target": "00000000-0000-4000-8000-000000000051",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000bc",
+      "source": "00000000-0000-4000-8000-000000000051",
+      "target": "00000000-0000-4000-8000-00000000005f",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000bd",
+      "source": "00000000-0000-4000-8000-00000000005f",
+      "target": "00000000-0000-4000-8000-00000000006e",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000be",
+      "source": "00000000-0000-4000-8000-00000000006e",
+      "target": "00000000-0000-4000-8000-000000000072",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000bf",
+      "source": "00000000-0000-4000-8000-000000000072",
+      "target": "00000000-0000-4000-8000-00000000007b",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000c0",
+      "source": "00000000-0000-4000-8000-000000000021",
+      "target": "00000000-0000-4000-8000-00000000003e",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000c1",
+      "source": "00000000-0000-4000-8000-00000000003e",
+      "target": "00000000-0000-4000-8000-000000000057",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000c2",
+      "source": "00000000-0000-4000-8000-000000000057",
+      "target": "00000000-0000-4000-8000-000000000065",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000c3",
+      "source": "00000000-0000-4000-8000-00000000007b",
+      "target": "00000000-0000-4000-8000-00000000007f",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000c4",
+      "source": "00000000-0000-4000-8000-00000000007f",
+      "target": "00000000-0000-4000-8000-00000000008d",
+      "sourceHandle": "00000000-0000-4000-8000-0000000000a7",
+      "targetHandle": "00000000-0000-4000-8000-0000000000a8"
+    }
+  ]
+}
