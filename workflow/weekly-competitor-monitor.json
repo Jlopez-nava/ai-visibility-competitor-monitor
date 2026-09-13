@@ -539,7 +539,7 @@
           ],
           "sort_by": "metric",
           "date_range": "last_14_days",
-          "category_id": "[REDACTED_CATEGORY_ID_001]",
+          "category_id": "10000000-0000-4000-8000-000000000001",
           "date_interval": "week",
           "output_format": "detailed",
           "sort_direction": "desc"
@@ -1077,7 +1077,7 @@
           ],
           "sort_by": "metric",
           "date_range": "last_7_days",
-          "category_id": "[REDACTED_CATEGORY_ID_001]",
+          "category_id": "10000000-0000-4000-8000-000000000001",
           "output_format": "json",
           "sort_direction": "desc"
         },
@@ -1398,7 +1398,7 @@
           ],
           "sort_by": "metric",
           "date_range": "last_7_days",
-          "category_id": "[REDACTED_CATEGORY_ID_001]",
+          "category_id": "10000000-0000-4000-8000-000000000001",
           "output_format": "json",
           "sort_direction": "desc"
         },
@@ -1725,7 +1725,7 @@
           "title": "Content Brief — {{00000000-0000-4000-8000-000000000011}} — {{00000000-0000-4000-8000-000000000013}}",
           "content": "{{00000000-0000-4000-8000-000000000073}}",
           "content_format": "markdown",
-          "integration_id": "[REDACTED_INTEGRATION_ID_001]"
+          "integration_id": "20000000-0000-4000-8000-000000000001"
         },
         "tool_id": "create_document",
         "provider_id": "google_docs"
@@ -1774,7 +1774,7 @@
           "title": "{{00000000-0000-4000-8000-000000000077}}",
           "content": "{{00000000-0000-4000-8000-000000000075}}",
           "content_format": "markdown",
-          "integration_id": "[REDACTED_INTEGRATION_ID_001]"
+          "integration_id": "20000000-0000-4000-8000-000000000001"
         },
         "title": "Create Weekly Analysis Google Doc"
       },
@@ -2012,8 +2012,8 @@
       "data": {
         "tool_parameters": {
           "message": "{{00000000-0000-4000-8000-000000000080}}",
-          "channel_id": "[REDACTED_CHANNEL_ID_001]",
-          "integration_id": "[REDACTED_INTEGRATION_ID_002]"
+          "channel_id": "C0000000001",
+          "integration_id": "20000000-0000-4000-8000-000000000002"
         },
         "tool_id": "send_message",
         "title": "Post Message C — Content Brief Follow-up",
@@ -2052,8 +2052,8 @@
         "tool_id": "send_message",
         "tool_parameters": {
           "message": "{{00000000-0000-4000-8000-000000000085}}",
-          "channel_id": "[REDACTED_CHANNEL_ID_001]",
-          "integration_id": "[REDACTED_INTEGRATION_ID_002]"
+          "channel_id": "C0000000001",
+          "integration_id": "20000000-0000-4000-8000-000000000002"
         },
         "provider_id": "slack"
       },
@@ -2090,8 +2090,8 @@
       "data": {
         "tool_parameters": {
           "message": "{{00000000-0000-4000-8000-000000000087}}",
-          "channel_id": "[REDACTED_CHANNEL_ID_001]",
-          "integration_id": "[REDACTED_INTEGRATION_ID_002]"
+          "channel_id": "C0000000001",
+          "integration_id": "20000000-0000-4000-8000-000000000002"
         },
         "tool_id": "send_message",
         "provider_id": "slack",
@@ -2133,8 +2133,8 @@
         "tool_id": "send_message",
         "tool_parameters": {
           "message": "{{00000000-0000-4000-8000-000000000083}}",
-          "channel_id": "[REDACTED_CHANNEL_ID_001]",
-          "integration_id": "[REDACTED_INTEGRATION_ID_002]"
+          "channel_id": "C0000000001",
+          "integration_id": "20000000-0000-4000-8000-000000000002"
         }
       },
       "input_variables": [
@@ -2353,7 +2353,7 @@
           "title": "{{00000000-0000-4000-8000-00000000009d}}",
           "content": "{{00000000-0000-4000-8000-00000000009c}}",
           "content_format": "markdown",
-          "integration_id": "[REDACTED_INTEGRATION_ID_001]"
+          "integration_id": "20000000-0000-4000-8000-000000000001"
         }
       },
       "input_variables": [
@@ -2449,8 +2449,8 @@
         "title": "Post Closing Gap Doc Link",
         "tool_parameters": {
           "message": "{{00000000-0000-4000-8000-0000000000a1}}",
-          "channel_id": "[REDACTED_CHANNEL_ID_001]",
-          "integration_id": "[REDACTED_INTEGRATION_ID_002]"
+          "channel_id": "C0000000001",
+          "integration_id": "20000000-0000-4000-8000-000000000002"
         },
         "provider_id": "slack",
         "tool_id": "send_message"
