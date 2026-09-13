@@ -6,6 +6,14 @@ This Profound workflow monitors a brand and its competitive set by topic. It sep
 
 > **Scheduling note:** The weekly schedule is configured separately inside Profound. It is not stored in this JSON export, so importing the workflow does not automatically create or activate a recurring schedule.
 
+## Download the workflow template
+
+**[Download the sanitized Profound workflow JSON](https://github.com/Jlopez-nava/ai-visibility-competitor-monitor/raw/refs/heads/main/workflow/weekly-competitor-monitor.json)**
+
+Download the file, then use the workflow-import option available in your Profound workspace. The template preserves the complete node graph and uses synthetic identifiers, generic brands, example topics, and reserved `.example` domains. It contains no working credentials, account identifiers, Slack destinations, customer data, or private competitive information.
+
+After import, reconnect each service and replace the example configuration inside Profound. The synthetic integration, category, and Slack channel IDs are deliberately non-working placeholders.
+
 ![Public-safe workflow architecture](assets/workflow-architecture.svg)
 
 _Architecture derived from the sanitized workflow export. Brand, account, topic, and integration details are intentionally anonymized._
